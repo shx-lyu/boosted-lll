@@ -21,7 +21,7 @@ while i<=n
               end    
      end
      
-    if norm(R(:,i))>norm(Ri) && abs(Ri(i-1))<.5 %if the non-reduced Ri is shorter && effective
+    if norm(R(:,i))>norm(Ri) && abs(Ri(i-1)/R(i-1,i-1))<.5 %if the non-reduced Ri is shorter && effective
         R(:,i)=Ri;
     end
      
