@@ -1,5 +1,5 @@
 % MAIN function 1: compare 'LLL','Boosted LLL','Deep LLL','SR-SIC' for
-% random bases
+% bases in Integer-Forcing
 % author: Shanxiang Lyu, shanxianglyu@gmail.com
 
 clc;
@@ -7,33 +7,27 @@ clear all;
 linestyles = cellstr(char('-','--','-.','--','-'));
 SetColors=lines(10); 
 Markers=['o','x','+','*','s'];
-rho_range=[0.1:0.1:0.6];
+SNR_range=[0:1:10];
 FIT=[];
 ALGORITHMS=[1,2,3,4]; %indicate the four types of algorithms
 algorithmbox={'LLL','Boosted LLL','Deep LLL','SR-SIC'};
-metricbox={'Orthogonality defect','Basis length','Shortest Vector','Average reduction time/s'};
-M=1;%M indicates the desired metric
- 
- for rho=rho_range 
+metricbox={'Ergodic rate $R_E$/bpcu','Basis length','Shortest Vector','Average reduction time/s'};
+M=4;%M indicates the desired metric
+
+ for SNR_val=SNR_range 
      
     n=20;%dimension
-    %Correlated matrix PHI
-    PHI=zeros(n,n);
-    for k=1:n
-        PHI(1,k)=rho^(k-1);%first row
-    end
-    PHI(1,1)=0;
-    c1=PHI(1,:);
-    for k=1:n %upper triangular
-        PHI(k,k:n)= c1(1:n-k+1);
-    end
-    PHI=PHI+PHI'+eye(n);%upper+lower+eye(n)
-
-    for monte=1:500 %the number of Monte-Carlo runs
-       B=PHI*randn(n,n);%correlated n-dim random matrix
-        for j=ALGORITHMS
-            switch j
-               case 1 %normal lll
+    P=10^(SNR_val/10);%the SNR value
+    
+        for monte=1:100 %the number of Monte-Carlo runs
+        
+           H=randn(n,n);
+           [U,S,V]=svd(H'*H+(1/P)*eye(n));
+           B=S^(-0.5)*V';%basis in integer-forcing
+              
+            for j=ALGORITHMS
+                switch j
+                case 1 %normal lll
                   expression = 'BR=LLL(B);';
                 case 2 % boosted LLL
                     expression = 'BR=LLLboost(B);';
@@ -41,36 +35,35 @@ M=1;%M indicates the desired metric
                     expression = 'BR=LLLdeep(B);';
                 case 4 %SR-SIC
                     expression = 'BR=SRSIC(B);';
+                end
+               tic
+               eval(expression);
+               ttoc=toc;
+               
+               switch M
+                   case 1
+                       fit(monte,j)=n*max(0,.5*log2(P/max(diag(BR'*BR))));
+                   case 2
+                       fit(monte,j)=max(diag(BR'*BR).^.5);
+                   case 3
+                       fit(monte,j)=min(diag(BR'*BR).^.5);
+                   case 4
+                       fit(monte,j)=ttoc;
+               end
+ 
             end
-           tic
-           eval(expression);
-           ttoc=toc;
-
-           switch M
-               case 1
-                   fit(monte,j)=abs(prod(sqrt(abs(diag(BR'*BR))))/sqrt(abs(det(BR'*BR))));
-               case 2
-                   fit(monte,j)=max(diag(BR'*BR).^.5);
-               case 3
-                   fit(monte,j)=min(diag(BR'*BR).^.5);
-               case 4
-                   fit(monte,j)=ttoc;
-           end
-
         end
-    end
-        
-    FIT=[FIT,mean(fit,1)'];
-end
-
+        FIT=[FIT,mean(fit,1)'];
+ end
+ 
 figure(1)
     for j=ALGORITHMS
-semilogy(rho_range,FIT(j,:),[linestyles{j} Markers(j)],'Color',SetColors(j,:),'Linewidth',1.5);
+semilogy(SNR_range,FIT(j,:),[linestyles{j} Markers(j)],'Color',SetColors(j,:),'Linewidth',1.5);
         hold on;
         grid on;
     end
 hold off;
 legend(algorithmbox(ALGORITHMS));
-xlabel('Correlation coefficient $\rho$','Interpreter','latex');
+xlabel('SNR/dB','Interpreter','latex');
 ylabel(metricbox(M),'Interpreter','latex');
 
